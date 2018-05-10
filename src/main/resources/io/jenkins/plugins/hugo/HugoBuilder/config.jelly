@@ -11,5 +11,8 @@
     <c:select/>
   </f:entry>
   <f:advanced>
+      <f:entry title="${%Hugo Home}" field="hugoHome">
+          <f:textbox />
+      </f:entry>
   </f:advanced>
 </j:jelly>

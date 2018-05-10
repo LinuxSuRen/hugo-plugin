@@ -8,6 +8,7 @@ import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.common.StandardUsernameCredentials;
 import com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
+import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
@@ -42,6 +43,8 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
     private String publishBranch = "master";
     private String credentialsId;
 
+    private String hugoHome;
+
     @DataBoundConstructor
     public HugoBuilder(String credentialsId)
     {
@@ -59,20 +62,44 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
         GitClient client = git.in(workspace).getClient();
 
         boolean hasGitModules = client.hasGitModules();
-        if(hasGitModules)
-        {
-            logger.println("Has subModules.");
-
-            // TODO here is some problem, we should use system method for now
-            client.submoduleInit();
-            client.submoduleUpdate();
-        }
+//        if(hasGitModules)
+//        {
+//            logger.println("Has subModules.");
+//
+//            // TODO here is some problem, we should use system method for now
+//            client.submoduleInit();
+//            client.submoduleUpdate();
+//        }
 
         logger.println("prepare to execute hugo");
         Runtime runtime = Runtime.getRuntime();
 
+        EnvVars env = run.getEnvironment(listener);
+
+        String[] envp = null;
+        if(env.values().size() > 0)
+        {
+            envp = new String[env.values().size()];
+            Set<String> keys = env.keySet();
+            int index = 0;
+            for(String key : keys)
+            {
+                envp[index++] = key + "=" + env.get(key);
+            }
+        }
+
         File docDir = new File(workspace.getRemote());
-        Process process = runtime.exec("hugo", null, docDir);
+        String hugoCmd;
+        if(getHugoHome() == null || "".equals(getHugoHome().trim()))
+        {
+            hugoCmd = "hugo";
+        }
+        else
+        {
+            hugoCmd = getHugoHome() + "hugo";
+        }
+
+        Process process = runtime.exec(hugoCmd, envp, docDir);
         InputStream input = process.getInputStream();
 
         BufferedReader reader = new BufferedReader(new InputStreamReader(input));
@@ -110,10 +137,12 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
 
             if(branchExists)
             {
-                client.deleteBranch(branch);
+                client.checkout().ref(branch).execute();
             }
-
-            client.checkout().ref(null).branch(branch).execute();
+            else
+            {
+                client.checkout().ref(null).branch(branch).execute();
+            }
 
             client.add(publishPath.getRemote());
             client.commit("Auto generate by suren");
@@ -199,6 +228,17 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
     public void setCredentialsId(String credentialsId)
     {
         this.credentialsId = credentialsId;
+    }
+
+    public String getHugoHome()
+    {
+        return hugoHome;
+    }
+
+    @DataBoundSetter
+    public void setHugoHome(String hugoHome)
+    {
+        this.hugoHome = hugoHome;
     }
 
     @Extension
