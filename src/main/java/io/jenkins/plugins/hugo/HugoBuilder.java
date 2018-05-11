@@ -23,6 +23,7 @@ import hudson.util.ListBoxModel;
 import jenkins.model.Jenkins;
 import jenkins.tasks.SimpleBuildStep;
 import org.eclipse.jgit.transport.URIish;
+import org.jenkinsci.Symbol;
 import org.jenkinsci.plugins.gitclient.Git;
 import org.jenkinsci.plugins.gitclient.GitClient;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -333,6 +334,7 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
     }
 
     @Extension
+    @Symbol("hugo")
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder>
     {
         public ListBoxModel doFillCredentialsIdItems() {
