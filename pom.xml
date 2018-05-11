@@ -15,13 +15,12 @@
     <packaging>hpi</packaging>
     <properties>
         <jenkins.version>2.83</jenkins.version>
-        <java.level>7</java.level>
+        <java.level>8</java.level>
     </properties>
 
     <name>Hugo Plugin</name>
     <description>Hugo build and publish</description>
 
-    <!-- The default licence for Jenkins OSS Plugins is MIT. Substitute for the applicable one if needed. -->
     <licenses>
         <license>
             <name>MIT License</name>

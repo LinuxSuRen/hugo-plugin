@@ -14,5 +14,21 @@
       <f:entry title="${%Hugo Home}" field="hugoHome">
           <f:textbox />
       </f:entry>
+
+      <f:entry title="${%Author Name}" field="authorName">
+          <f:textbox />
+      </f:entry>
+      <f:entry title="${%Author Email}" field="authorEmail">
+          <f:textbox />
+      </f:entry>
+      <f:entry title="${%Committer Name}" field="committerName">
+          <f:textbox />
+      </f:entry>
+      <f:entry title="${%Committer Email}" field="committerEmail">
+          <f:textbox />
+      </f:entry>
+      <f:entry title="${%Commit Log}" field="commitLog">
+          <f:textbox />
+      </f:entry>
   </f:advanced>
 </j:jelly>

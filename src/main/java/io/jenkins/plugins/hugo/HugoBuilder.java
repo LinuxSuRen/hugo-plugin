@@ -6,7 +6,6 @@ import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.common.StandardUsernameCredentials;
-import com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials;
 import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import hudson.EnvVars;
 import hudson.Extension;
@@ -44,6 +43,12 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
     private String credentialsId;
 
     private String hugoHome;
+    private String authorName;
+    private String authorEmail;
+    private String committerName;
+    private String committerEmail;
+
+    private String commitLog;
 
     @DataBoundConstructor
     public HugoBuilder(String credentialsId)
@@ -71,8 +76,107 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
 //            client.submoduleUpdate();
 //        }
 
-        logger.println("prepare to execute hugo");
+        // TODO here should check whether submodule'name is publish directory
+        if(hasGitModules)
+        {
+            logger.println("Prepare to commit and push");
+
+            FilePath publishPath = workspace.child(publishDir);
+
+            client = git.in(publishPath).getClient();
+
+            String branch = publishBranch;
+            logger.println("create new branch");
+
+            boolean branchExists = false;
+            Set<Branch> branches = client.getBranches();
+            if(branches != null && branches.size() > 0)
+            {
+                Iterator<Branch> it = branches.iterator();
+                while(it.hasNext())
+                {
+                    if(it.next().getName().equals(publishBranch))
+                    {
+                        branchExists = true;
+                        break;
+                    }
+                }
+            }
+
+            // we should switch branch to exists branch
+            if(branchExists)
+            {
+//                client.checkout().ref(branch).execute();
+            }
+            else
+            {
+            }
+            client.checkout().branch(branch).deleteBranchIfExist(true).ref("origin/" + branch).execute();
+
+            logger.println("prepare to execute hugo");
+            hugoBuild(run, listener, workspace);
+
+            logger.println("remote: " + publishPath.getRemote());
+            logger.println("add everything.");
+
+            String url = client.getRemoteUrl("origin");
+
+            if(credentialsId != null)
+            {
+                StandardUsernameCredentials credential = getCredential(logger);
+                if(credential != null)
+                {
+                    client.setCredentials(credential);
+                    client.setAuthor(getAuthorName(), getAuthorEmail());
+                    client.setCommitter(getCommitterName(), getCommitterEmail());
+
+                    logger.println("already set credential : " + credential.getUsername());
+                }
+                else
+                {
+                    logger.println("can not found credential");
+                }
+            }
+
+            logger.println("remote is " + url);
+
+            for(FilePath file : publishPath.list())
+            {
+                logger.println(file.getRemote());
+                client.add(file.getRemote());
+            }
+
+            client.commit(getCommitLog());
+
+            try
+            {
+
+                client.push().to(new URIish(url)).ref(branch).execute();
+            }
+            catch (URISyntaxException e)
+            {
+                e.printStackTrace();
+            }
+        }
+        else
+        {
+            logger.println("No submodule found.");
+        }
+    }
+
+    /**
+     * Build the Hugo site through hugo cmd line
+     * @param run
+     * @param listener
+     * @param workspace
+     * @throws IOException
+     * @throws InterruptedException
+     */
+    private void hugoBuild(@Nonnull Run<?, ?> run, TaskListener listener, @Nonnull FilePath workspace)
+            throws IOException, InterruptedException
+    {
         Runtime runtime = Runtime.getRuntime();
+        PrintStream logger = listener.getLogger();
 
         EnvVars env = run.getEnvironment(listener);
 
@@ -107,74 +211,6 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
         while((line = reader.readLine()) != null)
         {
             logger.println(line);
-        }
-
-        if(hasGitModules)
-        {
-            logger.println("Prepare to commit and push");
-
-            FilePath publishPath = workspace.child(publishDir);
-
-            client = git.in(publishPath).getClient();
-
-            String branch = publishBranch;
-            logger.println("create new branch");
-
-            boolean branchExists = false;
-            Set<Branch> branches = client.getBranches();
-            if(branches != null && branches.size() > 0)
-            {
-                Iterator<Branch> it = branches.iterator();
-                while(it.hasNext())
-                {
-                    if(it.next().getName().equals(publishBranch))
-                    {
-                        branchExists = true;
-                        break;
-                    }
-                }
-            }
-
-            if(branchExists)
-            {
-                client.checkout().ref(branch).execute();
-            }
-            else
-            {
-                client.checkout().ref(null).branch(branch).execute();
-            }
-
-            client.add(publishPath.getRemote());
-            client.commit("Auto generate by suren");
-            try
-            {
-                String url = client.getRemoteUrl("origin");
-
-                if(credentialsId != null)
-                {
-                    StandardUsernameCredentials credential = getCredential(logger);
-                    if(credential != null)
-                    {
-                        client.setCredentials(credential);
-                        client.setAuthor("author", "author@author.com");
-                        client.setCommitter("name", "email@emai.com");
-
-                        logger.println("already set credential : " + credential.getUsername());
-                    }
-                    else
-                    {
-                        logger.println("can not found credential");
-                    }
-                }
-
-                logger.println("remote is " + url);
-
-                client.push().to(new URIish(url)).ref(branch).execute();
-            }
-            catch (URISyntaxException e)
-            {
-                e.printStackTrace();
-            }
         }
     }
 
@@ -239,6 +275,61 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
     public void setHugoHome(String hugoHome)
     {
         this.hugoHome = hugoHome;
+    }
+
+    public String getAuthorName()
+    {
+        return authorName;
+    }
+
+    @DataBoundSetter
+    public void setAuthorName(String authorName)
+    {
+        this.authorName = authorName;
+    }
+
+    public String getAuthorEmail()
+    {
+        return authorEmail;
+    }
+
+    @DataBoundSetter
+    public void setAuthorEmail(String authorEmail)
+    {
+        this.authorEmail = authorEmail;
+    }
+
+    public String getCommitterName()
+    {
+        return committerName;
+    }
+
+    @DataBoundSetter
+    public void setCommitterName(String committerName)
+    {
+        this.committerName = committerName;
+    }
+
+    public String getCommitterEmail()
+    {
+        return committerEmail;
+    }
+
+    @DataBoundSetter
+    public void setCommitterEmail(String committerEmail)
+    {
+        this.committerEmail = committerEmail;
+    }
+
+    public String getCommitLog()
+    {
+        return commitLog;
+    }
+
+    @DataBoundSetter
+    public void setCommitLog(String commitLog)
+    {
+        this.commitLog = commitLog;
     }
 
     @Extension
