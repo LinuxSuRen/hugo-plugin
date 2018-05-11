@@ -15,7 +15,6 @@ import hudson.model.AbstractProject;
 import hudson.model.FreeStyleProject;
 import hudson.model.Run;
 import hudson.model.TaskListener;
-import hudson.plugins.git.Branch;
 import hudson.security.ACL;
 import hudson.tasks.BuildStepDescriptor;
 import hudson.tasks.Builder;
@@ -32,7 +31,10 @@ import org.kohsuke.stapler.DataBoundSetter;
 import javax.annotation.Nonnull;
 import java.io.*;
 import java.net.URISyntaxException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * @author suren
@@ -89,30 +91,7 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
             String branch = publishBranch;
             logger.println("create new branch");
 
-            boolean branchExists = false;
-            Set<Branch> branches = client.getBranches();
-            if(branches != null && branches.size() > 0)
-            {
-                Iterator<Branch> it = branches.iterator();
-                while(it.hasNext())
-                {
-                    if(it.next().getName().equals(publishBranch))
-                    {
-                        branchExists = true;
-                        break;
-                    }
-                }
-            }
-
-            // we should switch branch to exists branch
-            if(branchExists)
-            {
-//                client.checkout().ref(branch).execute();
-            }
-            else
-            {
-            }
-            client.checkout().branch(branch).deleteBranchIfExist(true).ref("origin/" + branch).execute();
+            client.checkout().branch(branch).deleteBranchIfExist(true).ref("origin/master").execute();
 
             logger.println("prepare to execute hugo");
             hugoBuild(run, listener, workspace);
@@ -141,18 +120,13 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
 
             logger.println("remote is " + url);
 
-            for(FilePath file : publishPath.list())
-            {
-                logger.println(file.getRemote());
-                client.add(file.getRemote());
-            }
-
+            client.add(".");
             client.commit(getCommitLog());
 
             try
             {
 
-                client.push().to(new URIish(url)).ref(branch).execute();
+                client.push().to(new URIish(url)).ref("origin/" + branch).execute();
             }
             catch (URISyntaxException e)
             {
@@ -161,17 +135,19 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
         }
         else
         {
-            logger.println("No submodule found.");
+            logger.println("No submodule found, just run hugo build.");
+
+            hugoBuild(run, listener, workspace);
         }
     }
 
     /**
      * Build the Hugo site through hugo cmd line
-     * @param run
-     * @param listener
-     * @param workspace
-     * @throws IOException
-     * @throws InterruptedException
+     * @param run Job Run
+     * @param listener Job Listener
+     * @param workspace Job Workspace
+     * @throws IOException In case of io error
+     * @throws InterruptedException In case of job running be interrupt
      */
     private void hugoBuild(@Nonnull Run<?, ?> run, TaskListener listener, @Nonnull FilePath workspace)
             throws IOException, InterruptedException
@@ -208,7 +184,7 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
         InputStream input = process.getInputStream();
 
         BufferedReader reader = new BufferedReader(new InputStreamReader(input));
-        String line = null;
+        String line;
         while((line = reader.readLine()) != null)
         {
             logger.println(line);
@@ -218,12 +194,12 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
     private StandardUsernameCredentials getCredential(PrintStream logger)
     {
         List<StandardUsernameCredentials> allCredentials = CredentialsProvider.lookupCredentials
-                (StandardUsernameCredentials.class, Jenkins.getInstance(), ACL.SYSTEM, new ArrayList<DomainRequirement>());
+                (StandardUsernameCredentials.class, Jenkins.get(), ACL.SYSTEM, new ArrayList<>());
 
         Credentials credential = CredentialsMatchers.firstOrNull(
                 allCredentials, CredentialsMatchers.withId(getCredentialsId()));
 
-        if(credential instanceof StandardUsernameCredentials)
+        if(credential != null)
         {
             return (StandardUsernameCredentials) credential;
         }
@@ -338,12 +314,12 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder>
     {
         public ListBoxModel doFillCredentialsIdItems() {
-            FreeStyleProject project = new FreeStyleProject(Jenkins.getInstance(), "fake-" + UUID.randomUUID().toString());
+            FreeStyleProject project = new FreeStyleProject(Jenkins.get(),"fake-" + UUID.randomUUID().toString());
 
             return new StandardListBoxModel().includeEmptyValue()
                     .includeMatchingAs(ACL.SYSTEM, project,
                             StandardUsernameCredentials.class,
-                            new ArrayList<DomainRequirement>(),
+                            new ArrayList<>(),
                             CredentialsMatchers.withScopes(CredentialsScope.GLOBAL));
         }
 
