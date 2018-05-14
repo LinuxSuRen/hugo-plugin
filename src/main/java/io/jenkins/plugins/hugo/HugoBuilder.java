@@ -90,7 +90,7 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
             String branch = publishBranch;
             logger.println("create new branch");
 
-            client.checkout().branch(branch).deleteBranchIfExist(true).ref("origin/master").execute();
+            client.checkout().branch(branch).deleteBranchIfExist(true).ref("HEAD").execute();
 
             logger.println("prepare to execute hugo");
             hugoBuild(run, launcher, listener, workspace);
@@ -125,7 +125,7 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
             try
             {
 
-                client.push().to(new URIish(url)).ref("origin/" + branch).execute();
+                client.push().to(new URIish(url)).ref(branch).execute();
             }
             catch (URISyntaxException e)
             {
