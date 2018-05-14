@@ -6,7 +6,6 @@ import com.cloudbees.plugins.credentials.CredentialsProvider;
 import com.cloudbees.plugins.credentials.CredentialsScope;
 import com.cloudbees.plugins.credentials.common.StandardListBoxModel;
 import com.cloudbees.plugins.credentials.common.StandardUsernameCredentials;
-import com.cloudbees.plugins.credentials.domains.DomainRequirement;
 import hudson.EnvVars;
 import hudson.Extension;
 import hudson.FilePath;
@@ -94,7 +93,7 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
             client.checkout().branch(branch).deleteBranchIfExist(true).ref("origin/master").execute();
 
             logger.println("prepare to execute hugo");
-            hugoBuild(run, listener, workspace);
+            hugoBuild(run, launcher, listener, workspace);
 
             logger.println("remote: " + publishPath.getRemote());
             logger.println("add everything.");
@@ -137,39 +136,25 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
         {
             logger.println("No submodule found, just run hugo build.");
 
-            hugoBuild(run, listener, workspace);
+            hugoBuild(run, launcher, listener, workspace);
         }
     }
 
     /**
      * Build the Hugo site through hugo cmd line
      * @param run Job Run
+     * @param launcher Launcher
      * @param listener Job Listener
      * @param workspace Job Workspace
      * @throws IOException In case of io error
      * @throws InterruptedException In case of job running be interrupt
      */
-    private void hugoBuild(@Nonnull Run<?, ?> run, TaskListener listener, @Nonnull FilePath workspace)
+    private void hugoBuild(@Nonnull Run<?, ?> run, Launcher launcher, TaskListener listener, @Nonnull FilePath workspace)
             throws IOException, InterruptedException
     {
-        Runtime runtime = Runtime.getRuntime();
         PrintStream logger = listener.getLogger();
-
         EnvVars env = run.getEnvironment(listener);
 
-        String[] envp = null;
-        if(env.values().size() > 0)
-        {
-            envp = new String[env.values().size()];
-            Set<String> keys = env.keySet();
-            int index = 0;
-            for(String key : keys)
-            {
-                envp[index++] = key + "=" + env.get(key);
-            }
-        }
-
-        File docDir = new File(workspace.getRemote());
         String hugoCmd;
         if(getHugoHome() == null || "".equals(getHugoHome().trim()))
         {
@@ -180,15 +165,7 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
             hugoCmd = getHugoHome() + "hugo";
         }
 
-        Process process = runtime.exec(hugoCmd, envp, docDir);
-        InputStream input = process.getInputStream();
-
-        BufferedReader reader = new BufferedReader(new InputStreamReader(input));
-        String line;
-        while((line = reader.readLine()) != null)
-        {
-            logger.println(line);
-        }
+        launcher.launch().cmds(hugoCmd).envs(env).stdout(logger).stderr(logger);
     }
 
     private StandardUsernameCredentials getCredential(PrintStream logger)
