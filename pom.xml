@@ -10,7 +10,7 @@
 
     <groupId>io.jenkins.plugins</groupId>
     <artifactId>hugo</artifactId>
-    <version>${revision}${sha1}${changelist}</version>
+    <version>0.1.0</version>
 
     <packaging>hpi</packaging>
     <properties>
@@ -18,7 +18,7 @@
         <java.level>8</java.level>
         <revision>0.1.0</revision>
         <changelist>-SNAPSHOT</changelist>
-        <sha1/>
+        <sha1 />
     </properties>
 
     <name>Hugo Plugin</name>
@@ -101,7 +101,8 @@
         <connection>scm:git:git://github.com/jenkinsci/${project.artifactId}-plugin.git</connection>
         <developerConnection>scm:git:git@github.com:jenkinsci/${project.artifactId}-plugin.git</developerConnection>
         <url>https://github.com/jenkinsci/${project.artifactId}-plugin</url>
-    </scm>
+      <tag>hugo-0.1.0</tag>
+  </scm>
 
     <repositories>
         <repository>
