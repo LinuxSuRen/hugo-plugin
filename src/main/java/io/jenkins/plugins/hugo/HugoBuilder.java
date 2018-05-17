@@ -45,12 +45,12 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
     private String credentialsId;
 
     private String hugoHome;
-    private String authorName;
-    private String authorEmail;
+    private String authorName = "hugo";
+    private String authorEmail = "hugo@hugo.com";
     private String committerName;
     private String committerEmail;
 
-    private String commitLog;
+    private String commitLog = "Auto commit by hugo-plugin.";
 
     @DataBoundConstructor
     public HugoBuilder(String credentialsId)
@@ -86,11 +86,18 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
             FilePath publishPath = workspace.child(publishDir);
 
             client = git.in(publishPath).getClient();
+            if(!client.hasGitRepo())
+            {
+                listener.error("Submodule has not init.");
+                return;
+            }
 
             String branch = publishBranch;
             logger.println("create new branch");
 
             client.checkout().branch(branch).deleteBranchIfExist(true).ref("HEAD").execute();
+
+            client.rebase().setUpstream("origin/" + branch).execute();
 
             logger.println("prepare to execute hugo");
             hugoBuild(run, launcher, listener, workspace);
@@ -106,8 +113,16 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
                 if(credential != null)
                 {
                     client.setCredentials(credential);
-                    client.setAuthor(getAuthorName(), getAuthorEmail());
-                    client.setCommitter(getCommitterName(), getCommitterEmail());
+
+                    if(getAuthorName() != null)
+                    {
+                        client.setAuthor(getAuthorName(), getAuthorEmail());
+                    }
+
+                    if(getCommitterName() != null)
+                    {
+                        client.setCommitter(getCommitterName(), getCommitterEmail());
+                    }
 
                     logger.println("already set credential : " + credential.getUsername());
                 }
@@ -115,6 +130,10 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
                 {
                     logger.println("can not found credential");
                 }
+            }
+            else
+            {
+                logger.println("No credential provide.");
             }
 
             logger.println("remote is " + url);
@@ -165,7 +184,7 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
             hugoCmd = getHugoHome() + "hugo";
         }
 
-        launcher.launch().cmds(hugoCmd).envs(env).stdout(logger).stderr(logger);
+        launcher.launch().pwd(workspace).cmds(hugoCmd).envs(env).stdout(logger).stderr(logger).start().join();
     }
 
     private StandardUsernameCredentials getCredential(PrintStream logger)
