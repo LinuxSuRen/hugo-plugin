@@ -2,10 +2,10 @@
 <j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout"
   xmlns:t="/lib/hudson" xmlns:f="/lib/form" xmlns:c="/lib/credentials">
   <f:entry title="${%Publish Directory}" field="publishDir">
-      <f:textbox />
+      <f:textbox default="public" />
   </f:entry>
   <f:entry title="${%Publish Branch}" field="publishBranch">
-      <f:textbox />
+      <f:textbox default="master" />
   </f:entry>
   <f:entry title="${%Credentials}" field="credentialsId">
     <c:select/>
@@ -16,10 +16,10 @@
       </f:entry>
 
       <f:entry title="${%Author Name}" field="authorName">
-          <f:textbox />
+          <f:textbox default="hugo" />
       </f:entry>
       <f:entry title="${%Author Email}" field="authorEmail">
-          <f:textbox />
+          <f:textbox default="hugo@hugo.com" />
       </f:entry>
       <f:entry title="${%Committer Name}" field="committerName">
           <f:textbox />
@@ -28,7 +28,7 @@
           <f:textbox />
       </f:entry>
       <f:entry title="${%Commit Log}" field="commitLog">
-          <f:textbox />
+          <f:textbox default="Auto commit by hugo-plugin." />
       </f:entry>
   </f:advanced>
 </j:jelly>

@@ -40,17 +40,17 @@ import java.util.UUID;
  */
 public class HugoBuilder extends Builder implements SimpleBuildStep
 {
-    private String publishDir = "public";
-    private String publishBranch = "master";
+    private String publishDir;
+    private String publishBranch;
     private String credentialsId;
 
     private String hugoHome;
-    private String authorName = "hugo";
-    private String authorEmail = "hugo@hugo.com";
+    private String authorName;
+    private String authorEmail;
     private String committerName;
     private String committerEmail;
 
-    private String commitLog = "Auto commit by hugo-plugin.";
+    private String commitLog;
 
     @DataBoundConstructor
     public HugoBuilder(String credentialsId)
