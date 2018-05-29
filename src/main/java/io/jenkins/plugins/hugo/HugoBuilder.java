@@ -40,123 +40,19 @@ import java.util.UUID;
  */
 public class HugoBuilder extends Builder implements SimpleBuildStep
 {
-    private String publishDir;
-    private String publishBranch;
-    private String credentialsId;
+    public static final String TEMP_PUBLIC = ".public";
 
     private String hugoHome;
-    private String authorName;
-    private String authorEmail;
-    private String committerName;
-    private String committerEmail;
-
-    private String commitLog;
 
     @DataBoundConstructor
-    public HugoBuilder(String credentialsId)
-    {
-        this.credentialsId = credentialsId;
-    }
+    public HugoBuilder() {}
 
     @Override
     public void perform(@Nonnull Run<?, ?> run, @Nonnull FilePath workspace,
-                        @Nonnull Launcher launcher, @Nonnull TaskListener listener) throws InterruptedException, IOException
+                        @Nonnull Launcher launcher, @Nonnull TaskListener listener)
+            throws InterruptedException, IOException
     {
-        PrintStream logger = listener.getLogger();
-
-        // check whether has submodule
-        Git git = new Git(listener, null);
-        GitClient client = git.in(workspace).getClient();
-
-        boolean hasGitModules = client.hasGitModules();
-//        if(hasGitModules)
-//        {
-//            logger.println("Has subModules.");
-//
-//            // TODO here is some problem, we should use system method for now
-//            client.submoduleInit();
-//            client.submoduleUpdate();
-//        }
-
-        // TODO here should check whether submodule'name is publish directory
-        if(hasGitModules)
-        {
-            logger.println("Prepare to commit and push");
-
-            FilePath publishPath = workspace.child(publishDir);
-
-            client = git.in(publishPath).getClient();
-            if(!client.hasGitRepo())
-            {
-                listener.error("Submodule has not init.");
-                return;
-            }
-
-            String branch = publishBranch;
-            logger.println("create new branch");
-
-            client.checkout().branch(branch).deleteBranchIfExist(true).ref("HEAD").execute();
-
-            client.rebase().setUpstream("origin/" + branch).execute();
-
-            logger.println("prepare to execute hugo");
-            hugoBuild(run, launcher, listener, workspace);
-
-            logger.println("remote: " + publishPath.getRemote());
-            logger.println("add everything.");
-
-            String url = client.getRemoteUrl("origin");
-
-            if(credentialsId != null)
-            {
-                StandardUsernameCredentials credential = getCredential(logger);
-                if(credential != null)
-                {
-                    client.setCredentials(credential);
-
-                    if(getAuthorName() != null)
-                    {
-                        client.setAuthor(getAuthorName(), getAuthorEmail());
-                    }
-
-                    if(getCommitterName() != null)
-                    {
-                        client.setCommitter(getCommitterName(), getCommitterEmail());
-                    }
-
-                    logger.println("already set credential : " + credential.getUsername());
-                }
-                else
-                {
-                    logger.println("can not found credential");
-                }
-            }
-            else
-            {
-                logger.println("No credential provide.");
-            }
-
-            logger.println("remote is " + url);
-
-            client.add(".");
-            client.commit(getCommitLog());
-
-            try
-            {
-
-                client.push().to(new URIish(url)).ref(branch).execute();
-            }
-            catch (URISyntaxException e)
-            {
-                e.printStackTrace();
-            }
-        }
-        else
-        {
-            logger.println("No submodule found, just run hugo build.");
-
-            hugoBuild(run, launcher, listener, workspace);
-        }
+        hugoBuild(run, launcher, listener, workspace);
     }
 
     /**
@@ -184,59 +80,13 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
             hugoCmd = getHugoHome() + "hugo";
         }
 
-        launcher.launch().pwd(workspace).cmds(hugoCmd).envs(env).stdout(logger).stderr(logger).start().join();
-    }
+        hugoCmd += " --destination " + HugoBuilder.TEMP_PUBLIC;
 
-    private StandardUsernameCredentials getCredential(PrintStream logger)
-    {
-        List<StandardUsernameCredentials> allCredentials = CredentialsProvider.lookupCredentials
-                (StandardUsernameCredentials.class, Jenkins.get(), ACL.SYSTEM, new ArrayList<>());
-
-        Credentials credential = CredentialsMatchers.firstOrNull(
-                allCredentials, CredentialsMatchers.withId(getCredentialsId()));
-
-        if(credential != null)
-        {
-            return (StandardUsernameCredentials) credential;
+        int exitCode = launcher.launch().pwd(workspace)
+                .cmdAsSingleString(hugoCmd).envs(env).stdout(logger).stderr(logger).start().join();
+        if(exitCode != 0) {
+            listener.fatalError("Hugo build error, exit code: " + exitCode);
         }
-        else
-        {
-            logger.println("can not found credential");
-        }
-
-        return null;
-    }
-
-    public String getPublishDir()
-    {
-        return publishDir;
-    }
-
-    @DataBoundSetter
-    public void setPublishDir(String publishDir)
-    {
-        this.publishDir = publishDir;
-    }
-
-    public String getPublishBranch()
-    {
-        return publishBranch;
-    }
-
-    @DataBoundSetter
-    public void setPublishBranch(String publishBranch)
-    {
-        this.publishBranch = publishBranch;
-    }
-
-    public String getCredentialsId()
-    {
-        return credentialsId;
-    }
-
-    public void setCredentialsId(String credentialsId)
-    {
-        this.credentialsId = credentialsId;
     }
 
     public String getHugoHome()
@@ -250,75 +100,10 @@ public class HugoBuilder extends Builder implements SimpleBuildStep
         this.hugoHome = hugoHome;
     }
 
-    public String getAuthorName()
-    {
-        return authorName;
-    }
-
-    @DataBoundSetter
-    public void setAuthorName(String authorName)
-    {
-        this.authorName = authorName;
-    }
-
-    public String getAuthorEmail()
-    {
-        return authorEmail;
-    }
-
-    @DataBoundSetter
-    public void setAuthorEmail(String authorEmail)
-    {
-        this.authorEmail = authorEmail;
-    }
-
-    public String getCommitterName()
-    {
-        return committerName;
-    }
-
-    @DataBoundSetter
-    public void setCommitterName(String committerName)
-    {
-        this.committerName = committerName;
-    }
-
-    public String getCommitterEmail()
-    {
-        return committerEmail;
-    }
-
-    @DataBoundSetter
-    public void setCommitterEmail(String committerEmail)
-    {
-        this.committerEmail = committerEmail;
-    }
-
-    public String getCommitLog()
-    {
-        return commitLog;
-    }
-
-    @DataBoundSetter
-    public void setCommitLog(String commitLog)
-    {
-        this.commitLog = commitLog;
-    }
-
     @Extension
     @Symbol("hugo")
     public static final class DescriptorImpl extends BuildStepDescriptor<Builder>
     {
-        public ListBoxModel doFillCredentialsIdItems() {
-            FreeStyleProject project = new FreeStyleProject(Jenkins.get(),"fake-" + UUID.randomUUID().toString());
-
-            return new StandardListBoxModel().includeEmptyValue()
-                    .includeMatchingAs(ACL.SYSTEM, project,
-                            StandardUsernameCredentials.class,
-                            new ArrayList<>(),
-                            CredentialsMatchers.withScopes(CredentialsScope.GLOBAL));
-        }
-
         @Override
         public boolean isApplicable(Class<? extends AbstractProject> jobType)
         {

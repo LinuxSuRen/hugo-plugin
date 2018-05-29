@@ -9,6 +9,7 @@ import hudson.model.FreeStyleProject;
 import hudson.plugins.git.GitSCM;
 import hudson.plugins.git.extensions.GitSCMExtension;
 import hudson.plugins.git.extensions.impl.SubmoduleOption;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.jvnet.hudson.test.JenkinsRule;
@@ -24,11 +25,12 @@ public class HugoBuildTest
     public JenkinsRule rule = new JenkinsRule();
 
     @Test
+    @Ignore
     public void build() throws Exception
     {
         FreeStyleProject project = rule.createFreeStyleProject();
 
-        HugoBuilder builder = new HugoBuilder("");
+        HugoBuilder builder = new HugoBuilder();
 
         GitSCM scm = new GitSCM(repo);
 
@@ -42,7 +44,6 @@ public class HugoBuildTest
                 null, "", "");
         SystemCredentialsProvider.getInstance().getCredentials().add(credentials);
 
-        builder.setCredentialsId(credentials.getId());
         project.getBuildersList().add(builder);
 
         rule.createOnlineSlave();
