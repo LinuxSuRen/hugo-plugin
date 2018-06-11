@@ -70,21 +70,19 @@ public class HugoGitPublisher extends Recorder implements SimpleBuildStep {
 
         setCredential(client, credentialsId, logger);
 
-//        try {
-//            client.fetch_().from(new URIish(targetUrl), null).execute();
-//        } catch (URISyntaxException e) {
-//            e.printStackTrace();
-//        }
-
         client.init();
         client.clone_().url(targetUrl).execute();
         client.checkoutBranch(publishBranch, "origin/" + publishBranch);
 
-//        client.clone(targetUrl, "origin", false, "master");
-
-//        branchSwitch(client, publishBranch, logger);
-
         workspace.child(publishDir).copyRecursiveTo(tmpPath);
+
+        if(getAuthorName() != null) {
+            client.setAuthor(getAuthorName(), getAuthorEmail());
+        }
+
+        if(getCommitterName() != null) {
+            client.setCommitter(getCommitterName(), getCommitterEmail());
+        }
 
         client.add(".");
         client.commit(commitLog);
